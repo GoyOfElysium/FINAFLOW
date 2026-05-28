@@ -4,18 +4,18 @@ class CurrencyFormatter {
   static final _formatter = NumberFormat.currency(
     locale: 'id_ID',
     symbol: 'Rp ',
-    decimalDigits: 0,
+    decimalDigits: 2,
   );
 
   static String format(double amount) => _formatter.format(amount);
 
   static String formatCompact(double amount) {
     if (amount >= 1000000000) {
-      return 'Rp ${(amount / 1000000000).toStringAsFixed(1)}M';
+      return 'Rp ${(amount / 1000000000).toStringAsFixed(2)}M';
     } else if (amount >= 1000000) {
-      return 'Rp ${(amount / 1000000).toStringAsFixed(1)}Jt';
+      return 'Rp ${(amount / 1000000).toStringAsFixed(2)}Jt';
     } else if (amount >= 1000) {
-      return 'Rp ${(amount / 1000).toStringAsFixed(0)}K';
+      return 'Rp ${(amount / 1000).toStringAsFixed(1)}K';
     }
     return format(amount);
   }

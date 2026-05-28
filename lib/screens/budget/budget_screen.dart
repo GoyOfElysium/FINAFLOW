@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
 import '../../providers/finance_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../models/transaction_model.dart';
 import '../../models/budget_model.dart';
 import '../../widgets/currency_formatter.dart';
-
-const _uuid = Uuid();
+import '../../widgets/error_formatter.dart';
 
 class BudgetScreen extends StatelessWidget {
   const BudgetScreen({super.key});
@@ -20,152 +18,162 @@ class BudgetScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: CustomScrollView(
-        slivers: [
-          // Blue header
-          SliverAppBar(
-            expandedHeight: 160,
-            pinned: true,
-            backgroundColor: AppTheme.primary,
-            elevation: 0,
-            title: const Text('Anggaran',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w700)),
-            flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.parallax,
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppTheme.primaryDark, AppTheme.primary],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+      body: RefreshIndicator(
+        onRefresh: () => provider.fetchAllData(),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // Blue header
+            SliverAppBar(
+              expandedHeight: 160,
+              pinned: true,
+              backgroundColor: AppTheme.primary,
+              elevation: 0,
+              title: const Text('Anggaran',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w700)),
+              flexibleSpace: FlexibleSpaceBar(
+                collapseMode: CollapseMode.parallax,
+                background: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppTheme.primaryDark, AppTheme.primary],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(28),
+                      bottomRight: Radius.circular(28),
+                    ),
                   ),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(28),
-                    bottomRight: Radius.circular(28),
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _MiniStat(
-                            label: 'Total Anggaran',
-                            amount: budgets.fold(0.0, (s, b) => s + b.limit),
-                            icon: Icons.account_balance_outlined,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _MiniStat(
+                              label: 'Total Anggaran',
+                              amount: budgets.fold(0.0, (s, b) => s + b.limit),
+                              icon: Icons.account_balance_outlined,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _MiniStat(
-                            label: 'Total Terpakai',
-                            amount: budgets.fold(0.0, (s, b) => s + b.spent),
-                            icon: Icons.payments_outlined,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _MiniStat(
+                              label: 'Total Terpakai',
+                              amount: budgets.fold(0.0, (s, b) => s + b.spent),
+                              icon: Icons.payments_outlined,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-
-          // Warning badge
-          if (provider.warningBudgets.isNotEmpty)
-            SliverToBoxAdapter(
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.07),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: AppTheme.primary.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
+  
+            // Warning badge
+            if (provider.warningBudgets.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                        color: AppTheme.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.warning_amber_rounded,
+                            color: AppTheme.primary, size: 20),
                       ),
-                      child: const Icon(Icons.warning_amber_rounded,
-                          color: AppTheme.primary, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '${provider.warningBudgets.length} anggaran membutuhkan perhatian',
-                        style: const TextStyle(
-                            color: AppTheme.primary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '${provider.warningBudgets.length} anggaran membutuhkan perhatian',
+                          style: const TextStyle(
+                              color: AppTheme.primary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-
-          // Budget list or empty state
-          budgets.isEmpty
-              ? SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: AppTheme.surface,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.pie_chart_outline_rounded,
-                              size: 40,
-                              color: AppTheme.textSecondary
-                                  .withValues(alpha: 0.6)),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text('Belum ada anggaran',
-                            style: TextStyle(
-                                color: AppTheme.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 6),
-                        const Text('Tap + untuk menetapkan anggaran',
-                            style: TextStyle(
-                                color: AppTheme.textSecondary, fontSize: 13)),
-                      ],
+  
+            // Budget list or empty state
+            provider.isLoading && budgets.isEmpty
+                ? const SliverFillRemaining(
+                    child: Center(
+                      child: CircularProgressIndicator(),
                     ),
-                  ),
-                )
-              : SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (ctx, i) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _BudgetCard(
-                          budget: budgets[i],
-                          onEdit: () => _showEditBudgetSheet(ctx, budgets[i]),
-                          onDelete: () {
-                            context
-                                .read<FinanceProvider>()
-                                .deleteBudget(budgets[i].id);
-                          },
+                  )
+                : budgets.isEmpty
+                    ? SliverFillRemaining(
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surface,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.pie_chart_outline_rounded,
+                                    size: 40,
+                                    color: AppTheme.textSecondary
+                                        .withValues(alpha: 0.6)),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text('Belum ada anggaran',
+                                  style: TextStyle(
+                                      color: AppTheme.textPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 6),
+                              const Text('Tap + untuk menetapkan anggaran',
+                                  style: TextStyle(
+                                      color: AppTheme.textSecondary, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      )
+                    : SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (ctx, i) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _BudgetCard(
+                                budget: budgets[i],
+                                onEdit: () => _showEditBudgetSheet(ctx, budgets[i]),
+                                onDelete: () {
+                                  context
+                                      .read<FinanceProvider>()
+                                      .deleteBudgetSupabase(budgets[i].id);
+                                },
+                              ),
+                            ),
+                            childCount: budgets.length,
+                          ),
                         ),
                       ),
-                      childCount: budgets.length,
-                    ),
-                  ),
-                ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         heroTag: 'fab_budget',
@@ -452,6 +460,7 @@ class _AddBudgetSheet extends StatefulWidget {
 class _AddBudgetSheetState extends State<_AddBudgetSheet> {
   final _limitCtrl = TextEditingController();
   TransactionCategory? _selectedCategory;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -468,7 +477,7 @@ class _AddBudgetSheetState extends State<_AddBudgetSheet> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: const Text('Pilih kategori terlebih dahulu'),
@@ -489,28 +498,46 @@ class _AddBudgetSheetState extends State<_AddBudgetSheet> {
       return;
     }
 
-    final provider = context.read<FinanceProvider>();
+    setState(() => _saving = true);
 
-    if (widget.existing != null) {
-      provider.updateBudget(
-        widget.existing!.copyWith(
-          categoryId: _selectedCategory!.id,
-          limit: limit,
-        ),
-      );
-    } else {
-      provider.addBudget(BudgetModel(
-        id: _uuid.v4(),
-        categoryId: _selectedCategory!.id,
-        limit: limit,
-      ));
+    try {
+      final provider = context.read<FinanceProvider>();
+
+      if (widget.existing != null) {
+        await provider.updateBudgetSupabase(
+          widget.existing!.id,
+          _selectedCategory!.id,
+          limit,
+        );
+      } else {
+        await provider.addBudgetSupabase(
+          _selectedCategory!.id,
+          limit,
+        );
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ErrorFormatter.format(e)),
+          backgroundColor: AppTheme.expense,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
     }
-
-    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<FinanceProvider>();
+    // Hanya menampilkan kategori jenis pengeluaran dari database Supabase
+    final expenseCategories = provider.categories
+        .where((c) => c.type == TransactionType.expense)
+        .toList();
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -558,42 +585,50 @@ class _AddBudgetSheetState extends State<_AddBudgetSheet> {
           const Text('Kategori Pengeluaran',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: Categories.expense.map((cat) {
-              final selected = _selectedCategory?.id == cat.id;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedCategory = cat),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: selected ? cat.color : AppTheme.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color: selected ? cat.color : AppTheme.divider),
+          expenseCategories.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Belum ada kategori pengeluaran di database. Buat kategori terlebih dahulu di halaman Transaksi.',
+                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(cat.icon,
-                          color: selected ? Colors.white : cat.color, size: 15),
-                      const SizedBox(width: 6),
-                      Text(cat.name,
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: selected
-                                  ? Colors.white
-                                  : AppTheme.textPrimary,
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
+                )
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: expenseCategories.map((cat) {
+                    final selected = _selectedCategory?.id == cat.id;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedCategory = cat),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: selected ? cat.color : AppTheme.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: selected ? cat.color : AppTheme.divider),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(cat.icon,
+                                color: selected ? Colors.white : cat.color, size: 15),
+                            const SizedBox(width: 6),
+                            Text(cat.name,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: selected
+                                        ? Colors.white
+                                        : AppTheme.textPrimary,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              );
-            }).toList(),
-          ),
           const SizedBox(height: 18),
           const Text('Batas Anggaran (Rp)',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
@@ -611,20 +646,25 @@ class _AddBudgetSheetState extends State<_AddBudgetSheet> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _save,
+              onPressed: _saving ? null : _save,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30)),
               ),
-              child: Text(
-                widget.existing != null
-                    ? 'Simpan Perubahan'
-                    : 'Tetapkan Anggaran',
-                style:
-                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-              ),
+              child: _saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : Text(
+                      widget.existing != null
+                          ? 'Simpan Perubahan'
+                          : 'Tetapkan Anggaran',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
             ),
           ),
         ],

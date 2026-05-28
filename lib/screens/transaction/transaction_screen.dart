@@ -30,151 +30,160 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: CustomScrollView(
-        slivers: [
-          // Blue header
-          SliverAppBar(
-            expandedHeight: 150,
-            pinned: true,
-            backgroundColor: AppTheme.primary,
-            elevation: 0,
-            title: const Text('Transaksi',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w700)),
-            flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.parallax,
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppTheme.primaryDark, AppTheme.primary],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(28),
-                    bottomRight: Radius.circular(28),
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _MiniStat(
-                            label: 'Total Pemasukan',
-                            amount: provider.totalIncome,
-                            icon: Icons.trending_up_rounded,
-                            color: const Color(0xFF86EFAC),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _MiniStat(
-                            label: 'Total Pengeluaran',
-                            amount: provider.totalExpense,
-                            icon: Icons.trending_down_rounded,
-                            color: const Color(0xFFFCA5A5),
-                          ),
-                        ),
-                      ],
+      body: RefreshIndicator(
+        onRefresh: () => provider.fetchAllData(),
+        child: CustomScrollView(
+          slivers: [
+            // Blue header
+            SliverAppBar(
+              expandedHeight: 150,
+              pinned: true,
+              backgroundColor: AppTheme.primary,
+              elevation: 0,
+              title: const Text('Transaksi',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w700)),
+              flexibleSpace: FlexibleSpaceBar(
+                collapseMode: CollapseMode.parallax,
+                background: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppTheme.primaryDark, AppTheme.primary],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(28),
+                      bottomRight: Radius.circular(28),
                     ),
                   ),
-                ),
-              ),
-            ),
-          ),
-
-          // Filter chips
-          SliverToBoxAdapter(
-            child: Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: _filters.map((f) {
-                  final selected = _filter == f;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _filter = f),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: selected ? AppTheme.primary : AppTheme.surface,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color:
-                                selected ? AppTheme.primary : AppTheme.divider,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _MiniStat(
+                              label: 'Total Pemasukan',
+                              amount: provider.totalIncome,
+                              icon: Icons.trending_up_rounded,
+                              color: const Color(0xFF86EFAC),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          f,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: selected
-                                ? Colors.white
-                                : AppTheme.textSecondary,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _MiniStat(
+                              label: 'Total Pengeluaran',
+                              amount: provider.totalExpense,
+                              icon: Icons.trending_down_rounded,
+                              color: const Color(0xFFFCA5A5),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
-                  );
-                }).toList(),
+                  ),
+                ),
               ),
             ),
-          ),
-
-          // Transaction list
-          filtered.isEmpty
-              ? SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 80,
-                          height: 80,
+  
+            // Filter chips
+            SliverToBoxAdapter(
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: _filters.map((f) {
+                    final selected = _filter == f;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _filter = f),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 8),
                           decoration: BoxDecoration(
-                            color: AppTheme.surface,
-                            shape: BoxShape.circle,
+                            color: selected ? AppTheme.primary : AppTheme.surface,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color:
+                                  selected ? AppTheme.primary : AppTheme.divider,
+                            ),
                           ),
-                          child: const Icon(Icons.receipt_long_outlined,
-                              size: 40, color: AppTheme.textSecondary),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text('Belum ada transaksi',
+                          child: Text(
+                            f,
                             style: TextStyle(
-                                color: AppTheme.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 6),
-                        const Text('Tap tombol + untuk menambahkan',
-                            style: TextStyle(
-                                color: AppTheme.textSecondary, fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                )
-              : SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (ctx, i) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _TxCard(
-                          tx: filtered[i],
-                          onDelete: () =>
-                              _confirmDelete(context, filtered[i].id),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? Colors.white
+                                  : AppTheme.textSecondary,
+                            ),
+                          ),
                         ),
                       ),
-                      childCount: filtered.length,
-                    ),
-                  ),
+                    );
+                  }).toList(),
                 ),
-        ],
+              ),
+            ),
+  
+            // Transaction list
+            provider.isLoading && allTx.isEmpty
+                ? const SliverFillRemaining(
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : filtered.isEmpty
+                    ? SliverFillRemaining(
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surface,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.receipt_long_outlined,
+                                    size: 40, color: AppTheme.textSecondary),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text('Belum ada transaksi',
+                                  style: TextStyle(
+                                      color: AppTheme.textPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 6),
+                              const Text('Tap tombol + untuk menambahkan',
+                                  style: TextStyle(
+                                      color: AppTheme.textSecondary, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      )
+                    : SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (ctx, i) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _TxCard(
+                                tx: filtered[i],
+                                onDelete: () =>
+                                    _confirmDelete(context, filtered[i].id),
+                              ),
+                            ),
+                            childCount: filtered.length,
+                          ),
+                        ),
+                      ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         heroTag: 'fab_transaction',

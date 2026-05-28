@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
 import '../../providers/finance_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../models/transaction_model.dart';
-
-const _uuid = Uuid();
+import '../../models/project_model.dart';
+import '../../widgets/error_formatter.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key});
@@ -25,6 +24,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   TransactionCategory? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
   TransactionType _type = TransactionType.expense;
+  ProjectModel? _selectedProject;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -49,9 +50,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     super.dispose();
   }
 
-  List<TransactionCategory> get _categories =>
-      _type == TransactionType.expense ? Categories.expense : Categories.income;
-
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -68,12 +66,118 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
-  void _save() {
+  void _showAddCategoryDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Tambah Kategori ${_type == TransactionType.expense ? "Pengeluaran" : "Pemasukan"}',
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+        ),
+        content: TextField(
+          controller: nameCtrl,
+          decoration: const InputDecoration(
+            hintText: 'Nama kategori baru',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.pop(ctx);
+                try {
+                  await context.read<FinanceProvider>().addCategory(name, _type);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Kategori berhasil ditambahkan')),
+                  );
+                } catch (e) {
+                  _showError(ErrorFormatter.format(e));
+                }
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddProjectDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final tagCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Tambah Proyek Baru',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Nama Proyek'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: tagCtrl,
+                decoration: const InputDecoration(labelText: 'Tag Proyek (Contoh: Client A)'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(labelText: 'Keterangan (Opsional)'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              final tag = tagCtrl.text.trim();
+              final desc = descCtrl.text.trim();
+
+              if (name.isNotEmpty && tag.isNotEmpty) {
+                Navigator.pop(ctx);
+                try {
+                  await context.read<FinanceProvider>().addProject(name, tag, desc.isEmpty ? null : desc);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Proyek berhasil ditambahkan')),
+                  );
+                } catch (e) {
+                  _showError(ErrorFormatter.format(e));
+                }
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save() async {
     if (_titleCtrl.text.trim().isEmpty) {
       _showError('Judul transaksi tidak boleh kosong');
       return;
     }
-    // Titik akan dihapus secara otomatis sebelum dikonversi menjadi angka
     final amount = double.tryParse(_amountCtrl.text.replaceAll('.', ''));
     if (amount == null || amount <= 0) {
       _showError('Jumlah tidak valid');
@@ -84,33 +188,42 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       return;
     }
 
-    final tx = TransactionModel(
-      id: _uuid.v4(),
-      title: _titleCtrl.text.trim(),
-      amount: amount,
-      type: _type,
-      categoryId: _selectedCategory!.id,
-      date: _selectedDate,
-      note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-    );
+    setState(() => _saving = true);
 
-    context.read<FinanceProvider>().addTransaction(tx);
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-            SizedBox(width: 8),
-            Text('Transaksi berhasil ditambahkan'),
-          ],
+    try {
+      final provider = context.read<FinanceProvider>();
+      await provider.addTransactionSupabase(
+        _titleCtrl.text.trim(),
+        amount,
+        _type,
+        _selectedCategory!.id,
+        _selectedDate,
+        _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+        _selectedProject?.id,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+              SizedBox(width: 8),
+              Text('Transaksi berhasil ditambahkan'),
+            ],
+          ),
+          backgroundColor: AppTheme.income,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
         ),
-        backgroundColor: AppTheme.income,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _showError(ErrorFormatter.format(e));
+    }
   }
 
   void _showError(String msg) {
@@ -159,6 +272,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<FinanceProvider>();
+    final categories = provider.categories.where((c) => c.type == _type).toList();
+    final projects = provider.projects;
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -248,7 +365,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                           child: TextField(
                             controller: _amountCtrl,
                             keyboardType: TextInputType.number,
-                            // Menerapkan formatter kustom di sini
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
                               ThousandsSeparatorInputFormatter(),
@@ -286,54 +402,118 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
               const SizedBox(height: 18),
 
               // Category
-              const _Label(text: 'Kategori'),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _categories.map((cat) {
-                  final selected = _selectedCategory?.id == cat.id;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedCategory = cat),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: selected ? cat.color : Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: selected ? cat.color : AppTheme.divider,
-                          width: selected ? 2 : 1,
-                        ),
-                        boxShadow: selected
-                            ? [
-                                BoxShadow(
-                                    color: cat.color.withValues(alpha: 0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 3))
-                              ]
-                            : [],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(cat.icon,
-                              color: selected ? Colors.white : cat.color,
-                              size: 16),
-                          const SizedBox(width: 6),
-                          Text(cat.name,
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: selected
-                                      ? Colors.white
-                                      : AppTheme.textPrimary)),
-                        ],
-                      ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const _Label(text: 'Kategori'),
+                  TextButton.icon(
+                    onPressed: () => _showAddCategoryDialog(context),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Kategori Baru', style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                  );
-                }).toList(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              categories.isEmpty
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'Belum ada kategori. Klik Kategori Baru untuk menambahkan.',
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: categories.map((cat) {
+                        final selected = _selectedCategory?.id == cat.id;
+                        return GestureDetector(
+                          onTap: () => setState(() => _selectedCategory = cat),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: selected ? cat.color : Colors.white,
+                              borderRadius: BorderRadius.circular(30),
+                              border: Border.all(
+                                color: selected ? cat.color : AppTheme.divider,
+                                width: selected ? 2 : 1,
+                              ),
+                              boxShadow: selected
+                                  ? [
+                                      BoxShadow(
+                                          color: cat.color.withValues(alpha: 0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3))
+                                    ]
+                                  : [],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(cat.icon,
+                                    color: selected ? Colors.white : cat.color,
+                                    size: 16),
+                                const SizedBox(width: 6),
+                                Text(cat.name,
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: selected
+                                            ? Colors.white
+                                            : AppTheme.textPrimary)),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+              const SizedBox(height: 18),
+
+              // Project
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const _Label(text: 'Proyek (Opsional)'),
+                  TextButton.icon(
+                    onPressed: () => _showAddProjectDialog(context),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Proyek Baru', style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<ProjectModel?>(
+                value: _selectedProject,
+                hint: const Text('Pilih Proyek', style: TextStyle(fontSize: 14)),
+                decoration: _customInputDecoration('Pilih Proyek', Icons.work_outline).copyWith(
+                  prefixIcon: const Icon(Icons.work_outline, color: AppTheme.primary),
+                ),
+                dropdownColor: Colors.white,
+                items: [
+                  const DropdownMenuItem<ProjectModel?>(
+                    value: null,
+                    child: Text('Tanpa Proyek', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+                  ),
+                  ...projects.map((p) => DropdownMenuItem<ProjectModel?>(
+                        value: p,
+                        child: Text('${p.name} (${p.tag})', style: const TextStyle(fontSize: 14)),
+                      )),
+                ],
+                onChanged: (val) => setState(() => _selectedProject = val),
               ),
               const SizedBox(height: 18),
 
@@ -411,11 +591,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                   ],
                 ),
                 child: ElevatedButton.icon(
-                  onPressed: _save,
-                  icon: const Icon(Icons.check_circle_rounded,
-                      size: 22, color: Colors.white),
-                  label: const Text('Simpan Transaksi',
-                      style: TextStyle(
+                  onPressed: _saving ? null : _save,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        )
+                      : const Icon(Icons.check_circle_rounded,
+                          size: 22, color: Colors.white),
+                  label: Text(_saving ? 'Menyimpan...' : 'Simpan Transaksi',
+                      style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
@@ -452,7 +638,6 @@ class _Label extends StatelessWidget {
       );
 }
 
-// ─── Custom Formatter untuk Pemisah Ribuan ────────────────────────────────────
 class ThousandsSeparatorInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -461,10 +646,8 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
       return newValue.copyWith(text: '');
     }
 
-    // Hanya ambil angka (mencegah karakter lain masuk)
     String cleanText = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
 
-    // Format dengan titik setiap 3 digit
     String formatted = '';
     int count = 0;
     for (int i = cleanText.length - 1; i >= 0; i--) {
@@ -475,7 +658,6 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
       count++;
     }
 
-    // Pastikan kursor selalu berada di akhir teks
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),

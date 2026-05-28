@@ -41,6 +41,15 @@ class BudgetModel {
     );
   }
 
+  factory BudgetModel.fromSupabase(Map<String, dynamic> map, double spent) {
+    return BudgetModel(
+      id: map['id_anggaran'].toString(),
+      categoryId: map['id_kategori'].toString(),
+      limit: (map['batas_nominal'] as num).toDouble(),
+      spent: spent,
+    );
+  }
+
   BudgetModel copyWith({
     String? id,
     String? categoryId,

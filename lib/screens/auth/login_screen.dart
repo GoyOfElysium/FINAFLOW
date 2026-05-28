@@ -44,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final provider = Provider.of<FinanceProvider>(context, listen: false);
       final success =
-          provider.login(_emailCtrl.text.trim(), _passCtrl.text.trim());
+          await provider.login(_emailCtrl.text.trim(), _passCtrl.text.trim());
 
       if (!mounted) return;
       setState(() => _loading = false);
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       } else {
         setState(
-            () => _error = 'Email atau password tidak valid (min. 6 karakter)');
+            () => _error = provider.errorMessage ?? 'Email atau password tidak valid (min. 6 karakter)');
       }
     } catch (e) {
       if (!mounted) return;

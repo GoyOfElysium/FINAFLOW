@@ -2,12 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'theme/app_theme.dart';
 import 'providers/finance_provider.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Dotenv and Supabase
+  try {
+    await dotenv.load(fileName: '.env');
+    await Supabase.initialize(
+      url: dotenv.env['SUPABASE_URL']!,
+      anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    );
+  } catch (e) {
+    debugPrint('Supabase/Dotenv initialization error: $e');
+  }
 
   // Initialize locale for Indonesian date formatting (non-blocking)
   try {
@@ -76,15 +90,34 @@ class _SplashScreenState extends State<_SplashScreen>
             CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
 
-    Future.delayed(const Duration(milliseconds: 1800), () {
+    Future.delayed(const Duration(milliseconds: 1800), () async {
       if (!mounted) return;
       try {
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session != null) {
+          // Inisialisasi data provider sebelum lanjut ke dashboard
+          final provider = Provider.of<FinanceProvider>(context, listen: false);
+          await provider.initializeUserSession();
+          
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+          );
+        } else {
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+        }
+      } catch (e) {
+        debugPrint('Navigation auth check error: $e');
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
-      } catch (e) {
-        debugPrint('Navigation error: $e');
       }
     });
   }

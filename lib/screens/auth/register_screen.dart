@@ -50,7 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     await Future.delayed(const Duration(milliseconds: 800));
 
     final provider = context.read<FinanceProvider>();
-    final success = provider.register(
+    final success = await provider.register(
         _nameCtrl.text.trim(), _emailCtrl.text.trim(), _passCtrl.text.trim());
 
     if (!mounted) return;
@@ -62,7 +62,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         MaterialPageRoute(builder: (_) => const MainScreen()),
       );
     } else {
-      setState(() => _error = 'Gagal mendaftar. Periksa kembali data Anda.');
+      setState(() => _error = provider.errorMessage ?? 'Gagal mendaftar. Periksa kembali data Anda.');
     }
   }
 

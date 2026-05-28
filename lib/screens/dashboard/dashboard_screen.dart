@@ -20,8 +20,11 @@ class DashboardScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: CustomScrollView(
-        slivers: [
+      body: RefreshIndicator(
+        onRefresh: () => provider.fetchAllData(),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
           // Blue curved AppBar header
           SliverAppBar(
             expandedHeight: 220,
@@ -234,6 +237,7 @@ class DashboardScreen extends StatelessWidget {
           ),
         ],
       ),
+     ),
     );
   }
 
@@ -255,9 +259,10 @@ class DashboardScreen extends StatelessWidget {
                 backgroundColor: AppTheme.expense,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12))),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              context.read<FinanceProvider>().logout();
+              await context.read<FinanceProvider>().logout();
+              if (!ctx.mounted) return;
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),

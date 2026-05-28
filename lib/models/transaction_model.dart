@@ -27,6 +27,7 @@ class TransactionModel {
   final DateTime date;
   final String? projectTag;
   final String? note;
+  final String? projectId; // Untuk mereferensikan proyek dari Supabase
 
   TransactionModel({
     required this.id,
@@ -37,6 +38,7 @@ class TransactionModel {
     required this.date,
     this.projectTag,
     this.note,
+    this.projectId,
   });
 
   Map<String, dynamic> toMap() {
@@ -49,6 +51,7 @@ class TransactionModel {
       'date': date.toIso8601String(),
       'projectTag': projectTag,
       'note': note,
+      'projectId': projectId,
     };
   }
 
@@ -62,12 +65,48 @@ class TransactionModel {
       date: DateTime.parse(map['date']),
       projectTag: map['projectTag'],
       note: map['note'],
+      projectId: map['projectId'],
+    );
+  }
+
+  factory TransactionModel.fromSupabase(Map<String, dynamic> map) {
+    final categoryMap = map['kategori'] as Map<String, dynamic>?;
+    final projectMap = map['proyek'] as Map<String, dynamic>?;
+
+    final jenisKategori = categoryMap?['jenis_kategori'] ?? 'pengeluaran';
+    final type = jenisKategori == 'pemasukan' ? TransactionType.income : TransactionType.expense;
+
+    final deskripsi = map['deskripsi'] as String? ?? '';
+    String title = deskripsi;
+    String? note;
+    if (deskripsi.contains('\n')) {
+      var parts = deskripsi.split('\n');
+      title = parts[0];
+      note = parts.sublist(1).join('\n');
+    }
+
+    return TransactionModel(
+      id: map['id_transaksi'].toString(),
+      title: title,
+      amount: (map['nominal'] as num).toDouble(),
+      type: type,
+      categoryId: map['id_kategori'].toString(),
+      date: DateTime.parse(map['tanggal']),
+      projectTag: projectMap != null ? projectMap['nama_proyek'] : null,
+      note: note,
+      projectId: map['id_proyek']?.toString(),
     );
   }
 }
 
 // Kategori Transaksi
 class Categories {
+  static List<TransactionCategory> _customCategories = [];
+
+  static void setCategories(List<TransactionCategory> cats) {
+    _customCategories = cats;
+  }
+
   static const List<TransactionCategory> income = [
     TransactionCategory(
       id: 'freelance',
@@ -146,9 +185,40 @@ class Categories {
 
   static TransactionCategory? findById(String id) {
     try {
-      return [...income, ...expense].firstWhere((c) => c.id == id);
+      return [..._customCategories, ...income, ...expense].firstWhere((c) => c.id == id);
     } catch (_) {
       return null;
+    }
+  }
+
+  static TransactionCategory fromSupabase(Map<String, dynamic> row) {
+    final name = row['nama_kategori'] as String;
+    final id = row['id_kategori'].toString();
+    final jenis = row['jenis_kategori'] as String;
+    final type = jenis == 'pemasukan' ? TransactionType.income : TransactionType.expense;
+
+    final preset = findByName(name, type);
+    return TransactionCategory(
+      id: id,
+      name: name,
+      icon: preset?.icon ?? Icons.category_outlined,
+      color: preset?.color ?? (type == TransactionType.income ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
+      type: type,
+    );
+  }
+
+  static TransactionCategory? findByName(String name, TransactionType type) {
+    final list = type == TransactionType.income ? income : expense;
+    try {
+      return list.firstWhere((c) => c.name.toLowerCase() == name.toLowerCase());
+    } catch (_) {
+      try {
+        return list.firstWhere((c) =>
+            name.toLowerCase().contains(c.name.toLowerCase()) ||
+            c.name.toLowerCase().contains(name.toLowerCase()));
+      } catch (_) {
+        return null;
+      }
     }
   }
 }

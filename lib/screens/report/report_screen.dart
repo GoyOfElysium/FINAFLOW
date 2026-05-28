@@ -33,8 +33,11 @@ class _ReportScreenState extends State<ReportScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: CustomScrollView(
-        slivers: [
+      body: RefreshIndicator(
+        onRefresh: () => provider.fetchAllData(),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
           // Blue curved header
           SliverAppBar(
             expandedHeight: 230,
@@ -161,6 +164,7 @@ class _ReportScreenState extends State<ReportScreen> {
           ),
         ],
       ),
+     ),
     );
   }
 }
