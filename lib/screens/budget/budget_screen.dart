@@ -239,7 +239,7 @@ class _MiniStat extends StatelessWidget {
                   Text(label,
                       style:
                           const TextStyle(color: Colors.white70, fontSize: 10)),
-                  Text(CurrencyFormatter.formatCompact(amount),
+                  Text(CurrencyFormatter.format(amount),
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
