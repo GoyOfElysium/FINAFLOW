@@ -678,7 +678,7 @@ class _TransactionItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${isIncome ? '+' : '-'}${CurrencyFormatter.formatCompact(tx.amount)}',
+                '${isIncome ? '+' : '-'}${CurrencyFormatter.format(tx.amount)}',
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
