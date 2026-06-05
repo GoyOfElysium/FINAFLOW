@@ -208,7 +208,7 @@ class _HeaderStat extends StatelessWidget {
                   Text(label,
                       style: const TextStyle(
                           color: Colors.white70, fontSize: 10)),
-                  Text(CurrencyFormatter.formatCompact(amount),
+                  Text(CurrencyFormatter.format(amount),
                       style: TextStyle(
                           color: color,
                           fontSize: 13,
@@ -606,7 +606,7 @@ class _CategoryRow extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(CurrencyFormatter.formatCompact(amount),
+                Text(CurrencyFormatter.format(amount),
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
