@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../providers/finance_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../models/transaction_model.dart';
 import '../../widgets/currency_formatter.dart';
 import 'add_transaction_screen.dart';
+import 'transaction_detail_screen.dart';
 
 class TransactionScreen extends StatefulWidget {
   const TransactionScreen({super.key});
@@ -17,6 +19,18 @@ class _TransactionScreenState extends State<TransactionScreen> {
   String _filter = 'Semua';
   final List<String> _filters = ['Semua', 'Pemasukan', 'Pengeluaran'];
 
+  // Group transactions by month-year
+  Map<String, List<TransactionModel>> _groupByMonth(
+      List<TransactionModel> transactions) {
+    final Map<String, List<TransactionModel>> grouped = {};
+    for (final tx in transactions) {
+      final key = DateFormat('MMMM yyyy', 'id_ID').format(tx.date);
+      grouped.putIfAbsent(key, () => []);
+      grouped[key]!.add(tx);
+    }
+    return grouped;
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<FinanceProvider>();
@@ -27,6 +41,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
       if (_filter == 'Pengeluaran') return tx.type == TransactionType.expense;
       return true;
     }).toList();
+
+    final grouped = _groupByMonth(filtered);
+    final monthKeys = grouped.keys.toList();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -86,14 +103,17 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 ),
               ),
             ),
-  
+
             // Filter chips
             SliverToBoxAdapter(
               child: Container(
                 color: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: _filters.map((f) {
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _filters.map((f) {
                     final selected = _filter == f;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -104,11 +124,13 @@ class _TransactionScreenState extends State<TransactionScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 18, vertical: 8),
                           decoration: BoxDecoration(
-                            color: selected ? AppTheme.primary : AppTheme.surface,
+                            color:
+                                selected ? AppTheme.primary : AppTheme.surface,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color:
-                                  selected ? AppTheme.primary : AppTheme.divider,
+                              color: selected
+                                  ? AppTheme.primary
+                                  : AppTheme.divider,
                             ),
                           ),
                           child: Text(
@@ -125,16 +147,15 @@ class _TransactionScreenState extends State<TransactionScreen> {
                       ),
                     );
                   }).toList(),
+                  ),
                 ),
               ),
             ),
-  
-            // Transaction list
+
+            // Transaction list grouped by month
             provider.isLoading && allTx.isEmpty
                 ? const SliverFillRemaining(
-                    child: Center(
-                      child: CircularProgressIndicator(),
-                    ),
+                    child: Center(child: CircularProgressIndicator()),
                   )
                 : filtered.isEmpty
                     ? SliverFillRemaining(
@@ -149,8 +170,10 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                   color: AppTheme.surface,
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.receipt_long_outlined,
-                                    size: 40, color: AppTheme.textSecondary),
+                                child: const Icon(
+                                    Icons.receipt_long_outlined,
+                                    size: 40,
+                                    color: AppTheme.textSecondary),
                               ),
                               const SizedBox(height: 16),
                               const Text('Belum ada transaksi',
@@ -159,26 +182,31 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600)),
                               const SizedBox(height: 6),
-                              const Text('Tap tombol + untuk menambahkan',
+                              const Text(
+                                  'Tap tombol + untuk menambahkan',
                                   style: TextStyle(
-                                      color: AppTheme.textSecondary, fontSize: 13)),
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 13)),
                             ],
                           ),
                         ),
                       )
                     : SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                        padding:
+                            const EdgeInsets.fromLTRB(0, 8, 0, 100),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
-                            (ctx, i) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _TxCard(
-                                tx: filtered[i],
-                                onDelete: () =>
-                                    _confirmDelete(context, filtered[i].id),
-                              ),
-                            ),
-                            childCount: filtered.length,
+                            (ctx, index) {
+                              final monthKey = monthKeys[index];
+                              final txList = grouped[monthKey]!;
+                              return _MonthSection(
+                                monthLabel: monthKey,
+                                transactions: txList,
+                                onDelete: (id) =>
+                                    _confirmDelete(context, id),
+                              );
+                            },
+                            childCount: monthKeys.length,
                           ),
                         ),
                       ),
@@ -189,7 +217,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
         heroTag: 'fab_transaction',
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
+          MaterialPageRoute(
+              builder: (_) => const AddTransactionScreen()),
         ),
         backgroundColor: AppTheme.primary,
         elevation: 4,
@@ -202,7 +231,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hapus Transaksi',
             style: TextStyle(fontWeight: FontWeight.w700)),
         content: const Text('Transaksi ini akan dihapus permanen.'),
@@ -269,7 +299,7 @@ class _MiniStat extends StatelessWidget {
                           const TextStyle(color: Colors.white70, fontSize: 10)),
                   const SizedBox(height: 2),
                   Text(
-                    CurrencyFormatter.formatCompact(amount),
+                    CurrencyFormatter.format(amount),
                     style: TextStyle(
                         color: color,
                         fontSize: 14,
@@ -283,16 +313,78 @@ class _MiniStat extends StatelessWidget {
       );
 }
 
-// ─── Transaction Card ─────────────────────────────────────────────────────────
-class _TxCard extends StatelessWidget {
+// ─── Month Section ────────────────────────────────────────────────────────────
+class _MonthSection extends StatelessWidget {
+  final String monthLabel;
+  final List<TransactionModel> transactions;
+  final void Function(String id) onDelete;
+
+  const _MonthSection({
+    required this.monthLabel,
+    required this.transactions,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Month header bar
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          color: AppTheme.surface,
+          child: Text(
+            monthLabel,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.primaryDark,
+            ),
+          ),
+        ),
+        // Transaction rows
+        Container(
+          color: Colors.white,
+          child: Column(
+            children: transactions.asMap().entries.map((entry) {
+              final tx = entry.value;
+              final isLast = entry.key == transactions.length - 1;
+              return _TxRow(
+                tx: tx,
+                showDivider: !isLast,
+                onDelete: () => onDelete(tx.id),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Transaction Row (reference-style) ────────────────────────────────────────
+class _TxRow extends StatelessWidget {
   final TransactionModel tx;
+  final bool showDivider;
   final VoidCallback onDelete;
-  const _TxCard({required this.tx, required this.onDelete});
+
+  const _TxRow({
+    required this.tx,
+    required this.showDivider,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     final category = Categories.findById(tx.categoryId);
     final isIncome = tx.type == TransactionType.income;
+
+    // Date parts
+    final day = DateFormat('dd').format(tx.date);
+    final monthShort = DateFormat('MMM', 'id_ID').format(tx.date);
+    final year = DateFormat('yyyy').format(tx.date);
 
     return Dismissible(
       key: Key(tx.id),
@@ -300,109 +392,124 @@ class _TxCard extends StatelessWidget {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: AppTheme.expense.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child:
-            const Icon(Icons.delete_outline_rounded, color: AppTheme.expense),
+        color: AppTheme.expense.withValues(alpha: 0.08),
+        child: const Icon(Icons.delete_outline_rounded,
+            color: AppTheme.expense),
       ),
       confirmDismiss: (_) async {
         onDelete();
         return false;
       },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 3)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: (category?.color ?? AppTheme.primary)
-                    .withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(category?.icon ?? Icons.swap_horiz,
-                  color: category?.color ?? AppTheme.primary, size: 22),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => TransactionDetailScreen(tx: tx),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
+          );
+        },
+        child: Column(
+          children: [
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tx.title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: AppTheme.textPrimary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: (category?.color ?? AppTheme.primary)
-                              .withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(category?.name ?? '-',
-                            style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: category?.color ?? AppTheme.primary)),
-                      ),
-                      if (tx.projectTag != null) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
+                  // Date column (like reference)
+                  SizedBox(
+                    width: 44,
+                    child: Column(
+                      children: [
+                        Text(
+                          day,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.primaryDark,
+                            height: 1.1,
                           ),
-                          child: Text('# ${tx.projectTag}',
-                              style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.primary,
-                                  fontWeight: FontWeight.w600)),
+                        ),
+                        Text(
+                          monthShort,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          year,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                       ],
-                    ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title
+                        Text(
+                          tx.title.toUpperCase(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: AppTheme.textPrimary,
+                            letterSpacing: 0.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        // Amount
+                        Text(
+                          '${isIncome ? '+' : '-'}${CurrencyFormatter.format(tx.amount)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color:
+                                isIncome ? AppTheme.income : AppTheme.expense,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        // Category
+                        Text(
+                          category?.name ?? '-',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Chevron
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppTheme.textSecondary.withValues(alpha: 0.5),
+                      size: 24,
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '${isIncome ? '+' : '-'}${CurrencyFormatter.formatCompact(tx.amount)}',
-                  style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: isIncome ? AppTheme.income : AppTheme.expense),
-                ),
-                const SizedBox(height: 3),
-                Text(DateFormatter.formatFull(tx.date),
-                    style: const TextStyle(
-                        fontSize: 10, color: AppTheme.textSecondary)),
-              ],
-            ),
+            // Divider
+            if (showDivider)
+              Divider(
+                height: 1,
+                indent: 74,
+                endIndent: 16,
+                color: AppTheme.divider.withValues(alpha: 0.8),
+              ),
           ],
         ),
       ),
